@@ -1,0 +1,34 @@
+# Data (generated — never commit raw patient data)
+data/raw/
+data/processed/
+data/features/
+data/synthea/synthea-with-dependencies.jar
+# Saved models (large binary files)
+models/
+
+# MLflow artifacts
+mlflow/
+
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.eggs/
+dist/
+build/
+.env
+*.env
+
+# Jupyter checkpoints
+.ipynb_checkpoints/
+
+# Conda
+*.tar.gz
+
+# OS
+.DS_Store
+Thumbs.db
+
+# IDE
+.vscode/
+.idea/
