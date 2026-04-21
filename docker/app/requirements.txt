@@ -1,0 +1,25 @@
+# Flask API
+flask==2.2.5
+flask-cors==3.0.10
+pydantic==1.10.9
+
+# Streamlit dashboard
+streamlit==1.22.0
+
+# PySpark — must match namenode image version
+pyspark==3.2.2
+
+# MLflow — must match mlflow container version
+mlflow==2.3.2
+mlflow[spark]==2.3.2
+
+# Data
+pandas==1.5.3
+numpy==1.23.5
+
+# Postgres
+psycopg2-binary==2.9.6
+
+# Utilities
+python-dotenv==1.0.0
+requests==2.31.0

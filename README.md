@@ -23,11 +23,8 @@ Hadoop 3.2.1, Hive 2.3.2, Spark 3.2.2 (YARN), and Airflow 2.3.3.
 
 ```bash
 # Clone the base cluster repo
-git clone https://github.com/mrugankray/Big-Data-Cluster.git
-cd Big-Data-Cluster
-
-# Copy this project's files into the cluster directory
-cp -r /path/to/this/project/* .
+git clone https://github.com/amr-algazzar12/Personalized-Healthcare-Recommendation-System.git
+cd Personalized-Healthcare-Recommendation-System
 ```
 
 > **Note:** The project files sit alongside the cluster's compose file.

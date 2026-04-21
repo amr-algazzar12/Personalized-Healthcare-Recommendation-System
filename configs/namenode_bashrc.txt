@@ -1,0 +1,36 @@
+# =============================================================================
+# namenode_bashrc.txt
+# Mounted as /root/.bashrc inside the namenode container.
+# =============================================================================
+
+# Source conda (path as baked into the mrugankray namenode image)
+if [ -f "/root/anaconda/etc/profile.d/conda.sh" ]; then
+    . "/root/anaconda/etc/profile.d/conda.sh"
+fi
+
+# Activate project environment by default
+conda activate healthcare-rec 2>/dev/null || true
+
+# Spark
+# Do NOT override JAVA_HOME — the namenode image uses Java 8 and sets
+# JAVA_HOME correctly in its own entrypoint. Overriding it here to a
+# Java 11 path causes spark-submit and hadoop commands to fail.
+export PYSPARK_PYTHON=/root/anaconda/envs/healthcare-rec/bin/python
+export PYSPARK_DRIVER_PYTHON=/root/anaconda/envs/healthcare-rec/bin/python
+
+# Airflow
+export AIRFLOW_HOME=/root/airflow
+
+# MLflow
+export MLFLOW_TRACKING_URI=http://mlflow:5001
+
+# Project source on PYTHONPATH
+export PYTHONPATH=/home/src:$PYTHONPATH
+
+# Convenience aliases
+alias hls='hdfs dfs -ls'
+alias hput='hdfs dfs -put'
+alias hget='hdfs dfs -get'
+alias hrm='hdfs dfs -rm -r'
+alias airflow-setup='bash /home/scripts/init_airflow.sh'
+alias verify='bash /home/scripts/verify_versions.sh'

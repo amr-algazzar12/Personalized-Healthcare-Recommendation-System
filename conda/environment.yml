@@ -1,0 +1,60 @@
+name: healthcare-rec
+
+# NOTE on conda version:
+# The namenode image ships with conda 23.x (not 4.12.0 as originally documented).
+# Conda changed their versioning from 4.x to YY.M.patch format after version 4.14.
+# conda 23.x is newer and fully compatible — no action needed.
+
+channels:
+  - conda-forge
+  - defaults
+
+dependencies:
+  - python=3.9.16
+  - pip=23.1.2
+
+  # Core data
+  - numpy=1.23.5
+  - pandas=1.5.3
+  - pyarrow=11.0.0
+
+  # Spark — the namenode image ships with PySpark 3.3.1 in its base conda env.
+  # We match that version here. Do NOT pin to 3.2.2 — the image already has
+  # 3.3.1 and conda will conflict trying to downgrade it.
+  - pyspark=3.3.1
+
+  # Jupyter (for notebooks inside namenode)
+  - jupyterlab=3.6.3
+  - ipykernel=6.22.0
+
+  # Testing
+  - pytest=7.3.1
+
+  - pip:
+    # MLflow — must match mlflow container version
+    - mlflow==2.3.2
+    - mlflow[spark]==2.3.2
+
+    # ML models
+    # XGBoost 1.7.x — last version with clean Spark 3.2.x + Python 3.9 support
+    - xgboost==1.7.6
+
+    # Scikit-learn (preprocessing only — not used inside Spark YARN jobs)
+    - scikit-learn==1.2.2
+
+    # API & dashboard (available inside namenode for local testing)
+    - flask==2.2.5
+    - flask-cors==3.0.10
+    - streamlit==1.22.0
+    - pydantic==1.10.9
+
+    # Postgres — uses external/external credentials (matches docker-compose.yaml)
+    - psycopg2-binary==2.9.6
+
+    # Airflow providers (Airflow itself is pre-installed in the namenode image)
+    - apache-airflow-providers-apache-spark==4.0.0
+    - apache-airflow-providers-ssh==3.0.0
+
+    # Utilities
+    - python-dotenv==1.0.0
+    - requests==2.31.0
