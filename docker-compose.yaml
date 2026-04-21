@@ -2,77 +2,54 @@ version: "3"
 
 # =============================================================================
 # docker-compose.yaml
-# Personalized Healthcare Recommendation System — full cluster stack.
-#
-# This is a self-contained file derived from mrugankray/Big-Data-Cluster.
-# Unused services (Hue, huedb, Cassandra, Kafka, Flume, Zeppelin) are removed.
-# All credentials match the original mrugankray cluster exactly.
-#
-# Start with:
-#   docker-compose up -d
-#
-# Services included (10):
-#   namenode, datanode, resourcemanager, nodemanager, historyserver,
-#   hive-server, hive-metastore, hive-metastore-postgresql,
-#   external_postgres_db, external_pgadmin
-#
-# Project additions (2) — built from ./docker/:
-#   mlflow, app
+# Self-contained cluster for the Personalized Healthcare Recommendation System.
+# Derived from mrugankray/Big-Data-Cluster — trimmed to required services only.
+# All credentials match the original cluster exactly.
 # =============================================================================
 
 services:
 
   # ---------------------------------------------------------------------------
-  # HDFS NameNode + Spark + Airflow + MiniConda
-  # All four live inside this single container.
+  # NameNode: HDFS + Spark + Airflow + MiniConda — all in one container
   # ---------------------------------------------------------------------------
   namenode:
     image: mrugankray/namenode-spark-airflow-flume-zepplin:1.1
     container_name: namenode
     restart: always
     ports:
-      - "9870:9870"    # HDFS NameNode UI
-      - "9000:9000"    # HDFS RPC
-      - "8080:8080"    # Spark Master UI
-      - "8081:8081"    # Spark Worker UI
-      - "4040:4040"    # Spark Driver UI (active during jobs)
-      - "3000:3000"    # Airflow UI
+      - "9870:9870"   # HDFS NameNode UI
+      - "9000:9000"   # HDFS RPC
+      - "8080:8080"   # Spark Master UI
+      - "8081:8081"   # Spark Worker UI
+      - "4040:4040"   # Spark Driver UI (active during jobs)
+      - "3000:3000"   # Airflow UI
     volumes:
-      # --- Cluster volumes (from original) ---
       - hadoop_namenode:/hadoop/dfs/name
       - hadoop_namenode_conda:/root/anaconda
       - hadoop_namenode_spark:/opt/spark
       - airflow_namenode:/root/airflow
-      # --- Config overrides ---
       - ./configs/namenode_bashrc.txt:/root/.bashrc
       - ./configs/namenode_airflow.cfg:/root/airflow/airflow.cfg
-      # --- DAGs (Airflow reads from here) ---
       - ./dags:/root/airflow/dags
-      # --- Project code and data (volume-mounted for Spark jobs) ---
       - ./src:/home/src
       - ./data/raw:/home/data/raw
       - ./models:/home/models
       - ./conda:/home/conda
       - ./scripts:/home/scripts
-      # --- Shared MLflow artifact store ---
       - mlflow_artifacts:/home/mlflow_artifacts
     environment:
       - CLUSTER_NAME=hadoop-learning
       - CORE_CONF_fs_defaultFS=hdfs://namenode:9000
-      # Replication factor = 1 (single datanode — must be set on both
-      # namenode and datanode or HDFS will report under-replicated blocks)
       - HDFS_CONF_dfs_replication=1
       - HDFS_CONF_dfs_namenode_replication_min=1
-      # PySpark must use the conda env Python, not the system Python
       - PYSPARK_PYTHON=/root/anaconda/envs/healthcare-rec/bin/python
       - PYSPARK_DRIVER_PYTHON=/root/anaconda/envs/healthcare-rec/bin/python
-      # MLflow tracking URI — points to the mlflow service on Docker network
       - MLFLOW_TRACKING_URI=http://mlflow:5001
     env_file:
       - ./hadoop.env
 
   # ---------------------------------------------------------------------------
-  # HDFS DataNode
+  # DataNode
   # ---------------------------------------------------------------------------
   datanode:
     image: mrugankray/datanode-python:1.0
@@ -81,12 +58,10 @@ services:
     volumes:
       - hadoop_datanode:/hadoop/dfs/data
       - hadoop_datanode_conda:/root/anaconda
+      - ./configs/datanode_bashrc.txt:/root/.bashrc
     environment:
       SERVICE_PRECONDITION: "namenode:9870"
       CORE_CONF_fs_defaultFS: "hdfs://namenode:9000"
-      # Replication factor = 1 because we have a single datanode.
-      # Without this the namenode marks all blocks as under-replicated
-      # and HDFS writes will fail or stall.
       HDFS_CONF_dfs_replication: "1"
       HDFS_CONF_dfs_datanode_use_datanode_hostname: "false"
     ports:
@@ -103,6 +78,7 @@ services:
     restart: always
     volumes:
       - hadoop_resourcemanager_conda:/root/anaconda
+      - ./configs/resourcemanager_bashrc.txt:/root/.bashrc
     environment:
       SERVICE_PRECONDITION: "namenode:9000 namenode:9870 datanode:9864"
     ports:
@@ -111,7 +87,7 @@ services:
       - ./hadoop.env
 
   # ---------------------------------------------------------------------------
-  # YARN NodeManager — executes Spark tasks
+  # YARN NodeManager
   # ---------------------------------------------------------------------------
   nodemanager:
     image: mrugankray/nodemanager-python:1.0
@@ -119,16 +95,17 @@ services:
     restart: always
     volumes:
       - hadoop_nodemanager_conda:/root/anaconda
+      - ./configs/nodemanager_bashrc.txt:/root/.bashrc
     environment:
       SERVICE_PRECONDITION: "namenode:9000 namenode:9870 datanode:9864 resourcemanager:8088"
     ports:
       - "8042:8042"
-      - "19888:19888"   # Job History access
+      - "19888:19888"
     env_file:
       - ./hadoop.env
 
   # ---------------------------------------------------------------------------
-  # Hadoop History Server — Spark/YARN job logs
+  # History Server
   # ---------------------------------------------------------------------------
   historyserver:
     image: bde2020/hadoop-historyserver:2.0.0-hadoop3.2.1-java8
@@ -144,8 +121,8 @@ services:
       - ./hadoop.env
 
   # ---------------------------------------------------------------------------
-  # Hive Server (Hive 2.3.2 + Sqoop + SSH server)
-  # SSHOperator in Airflow connects here to run beeline commands.
+  # Hive Server — Hive 2.3.2 + SSH (for Airflow SSHOperator)
+  # All four config files MUST be mounted or the container exits immediately.
   # ---------------------------------------------------------------------------
   hive-server:
     image: mrugankray/hive-server-sqoop:1.0
@@ -157,7 +134,10 @@ services:
       - hive-metastore
     volumes:
       - hadoop_hive_server_sqoop:/usr/lib/sqoop
-      # Mount src so HQL files are accessible via the volume
+      - ./configs/hive_server/sqoop-env.sh:/usr/lib/sqoop/conf/sqoop-env.sh
+      - ./configs/hive_server/hive_server_bashrc.txt:/root/.bashrc
+      - ./configs/hive_server/sqoop-site.xml:/usr/lib/sqoop/conf/sqoop-site.xml
+      - ./configs/hive_server/sshd_config.conf:/etc/ssh/sshd_config
       - ./src:/home/src
     environment:
       HIVE_CORE_CONF_javax_jdo_option_ConnectionURL: "jdbc:postgresql://hive-metastore/metastore"
@@ -168,7 +148,8 @@ services:
       - ./hadoop.env
 
   # ---------------------------------------------------------------------------
-  # Hive Metastore service
+  # Hive Metastore
+  # NOTE: On first boot run: make init-hive-schema
   # ---------------------------------------------------------------------------
   hive-metastore:
     image: bde2020/hive:2.3.2-postgresql-metastore
@@ -185,8 +166,7 @@ services:
       - ./hadoop.env
 
   # ---------------------------------------------------------------------------
-  # Hive Metastore PostgreSQL backend
-  # INTERNAL ONLY — never reference this from application code.
+  # Hive Metastore PostgreSQL — INTERNAL ONLY, never use from app code
   # ---------------------------------------------------------------------------
   hive-metastore-postgresql:
     image: bde2020/hive-metastore-postgresql:2.3.0
@@ -194,8 +174,8 @@ services:
     restart: always
 
   # ---------------------------------------------------------------------------
-  # External PostgreSQL — used by Airflow metadata DB, MLflow backend, and app.
-  # Credentials are EXACTLY as defined in the original mrugankray cluster.
+  # External PostgreSQL — Airflow DB + MLflow backend + app
+  # Credentials: user=external  password=external  db=external
   # ---------------------------------------------------------------------------
   external_postgres_db:
     image: postgres:15.1-alpine3.17
@@ -203,7 +183,6 @@ services:
     restart: always
     volumes:
       - external_postgres_db_data:/var/lib/postgresql/data/
-      # Init script creates the airflow and mlflow databases on first boot
       - ./configs/postgres_init.sql:/docker-entrypoint-initdb.d/init.sql
     ports:
       - "5432:5432"
@@ -213,8 +192,7 @@ services:
       POSTGRES_DB: external
 
   # ---------------------------------------------------------------------------
-  # pgAdmin 4 — inspect both Postgres instances
-  # Credentials match the original mrugankray cluster exactly.
+  # pgAdmin 4
   # ---------------------------------------------------------------------------
   external_pgadmin:
     image: dpage/pgadmin4:6.18
@@ -229,7 +207,7 @@ services:
       - external_postgres_db
 
   # ---------------------------------------------------------------------------
-  # MLflow tracking server — your addition
+  # MLflow tracking server
   # ---------------------------------------------------------------------------
   mlflow:
     build:
@@ -242,7 +220,6 @@ services:
     volumes:
       - mlflow_artifacts:/home/mlflow_artifacts
     environment:
-      # Uses the external_postgres_db with the correct credentials
       MLFLOW_BACKEND_STORE_URI: postgresql://external:external@external_postgres_db:5432/mlflow
       MLFLOW_ARTIFACT_ROOT: /home/mlflow_artifacts
     depends_on:
@@ -255,7 +232,7 @@ services:
       --port 5001
 
   # ---------------------------------------------------------------------------
-  # Flask API + Streamlit dashboard — your addition
+  # Flask API + Streamlit dashboard
   # ---------------------------------------------------------------------------
   app:
     build:
@@ -264,8 +241,8 @@ services:
     container_name: app
     restart: always
     ports:
-      - "5050:5050"    # Flask REST API
-      - "8501:8501"    # Streamlit dashboard
+      - "5050:5050"
+      - "8501:8501"
     volumes:
       - ./src:/home/src
       - ./models:/home/models
@@ -278,14 +255,10 @@ services:
     depends_on:
       - mlflow
     command: >
-      bash -c "python /home/src/api/app.py &
-               streamlit run /home/src/dashboard/app.py
-               --server.port 8501
-               --server.address 0.0.0.0"
+      bash -c "python /home/src/api/app.py & streamlit run /home/src/dashboard/app.py --server.port 8501 --server.address 0.0.0.0"
 
 # =============================================================================
-# Named volumes — matching the original mrugankray cluster exactly
-# plus the two project additions
+# Volumes
 # =============================================================================
 volumes:
   hadoop_namenode:
@@ -299,4 +272,4 @@ volumes:
   hadoop_hive_server_sqoop:
   external_postgres_db_data:
   airflow_namenode:
-  mlflow_artifacts:        # shared between namenode and mlflow containers
+  mlflow_artifacts:

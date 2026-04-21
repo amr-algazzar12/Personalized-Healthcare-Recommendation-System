@@ -1,0 +1,14 @@
+# =============================================================================
+# hive_server_bashrc.txt
+# Mounted as /root/.bashrc inside the hive-server container.
+# =============================================================================
+
+export HADOOP_HOME=/opt/hadoop
+export HADOOP_CONF_DIR=/opt/hadoop/etc/hadoop
+export HIVE_HOME=/opt/hive
+export SQOOP_HOME=/usr/lib/sqoop
+
+export PATH=$HIVE_HOME/bin:$HADOOP_HOME/bin:$SQOOP_HOME/bin:$PATH
+
+# Alias for quick beeline access
+alias beeline-local='beeline -u jdbc:hive2://localhost:10000 -n root'

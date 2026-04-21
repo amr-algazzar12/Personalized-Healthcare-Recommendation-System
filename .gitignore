@@ -16,8 +16,8 @@ __pycache__/
 .eggs/
 dist/
 build/
-.env
-*.env
+# .env
+# *.env
 
 # Jupyter checkpoints
 .ipynb_checkpoints/

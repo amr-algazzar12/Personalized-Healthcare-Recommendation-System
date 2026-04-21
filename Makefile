@@ -39,6 +39,7 @@ help:
 	@echo "    make init-airflow-3     Step 3 — SSH connection + start daemons"
 	@echo ""
 	@echo "  Data pipeline:"
+	@echo "    make init-hive-schema   ONE-TIME: seed Hive metastore schema on first boot"
 	@echo "    make upload-hdfs        Validate CSVs and upload to HDFS"
 	@echo "    make create-hive-tables Run create_tables.hql via beeline"
 	@echo "    make pipeline           Trigger dag_ingest_to_hdfs in Airflow"
@@ -59,7 +60,7 @@ generate-data:
 # ---------------------------------------------------------------------------
 up:
 	@echo ">>> Starting cluster services..."
-	@docker-compose -f $(COMPOSE_FILE) up $(SERVICES) -d
+	@docker-compose -f $(COMPOSE_FILE) up -d $(SERVICES)
 	@echo ""
 	@echo "Wait ~2 minutes then run: make ps"
 
@@ -111,6 +112,15 @@ upload-hdfs:
 create-hive-tables:
 	@echo ">>> Creating Hive tables..."
 	@bash scripts/create_hive_tables.sh
+
+init-hive-schema:
+	@echo ">>> Initialising Hive metastore schema (run once on first boot)..."
+	@docker exec -it hive-metastore /opt/hive/bin/schematool -dbType postgres -initSchema
+	@echo "Restarting hive-metastore..."
+	@docker restart hive-metastore
+	@echo "Waiting 15s for metastore to come up..."
+	@sleep 15
+	@docker logs hive-metastore --tail 10
 
 # ---------------------------------------------------------------------------
 # Airflow trigger

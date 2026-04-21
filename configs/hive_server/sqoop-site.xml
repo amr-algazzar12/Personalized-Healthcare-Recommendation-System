@@ -1,0 +1,12 @@
+<?xml version="1.0"?>
+<?xml-stylesheet type="text/xsl" href="configuration.xsl"?>
+<!--
+  sqoop-site.xml — minimal stub required by hive-server container mount.
+  Sqoop is not used in this project. This file must exist for the mount to succeed.
+-->
+<configuration>
+  <property>
+    <name>sqoop.metastore.client.autoconnect.url</name>
+    <value>jdbc:hsqldb:file:/tmp/sqoop-metastore/sqoop;shutdown=true</value>
+  </property>
+</configuration>

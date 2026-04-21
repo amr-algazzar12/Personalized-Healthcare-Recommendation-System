@@ -1,0 +1,3 @@
+# datanode container bashrc
+export HADOOP_HOME=/opt/hadoop
+export PATH=$HADOOP_HOME/bin:$HADOOP_HOME/sbin:$PATH
