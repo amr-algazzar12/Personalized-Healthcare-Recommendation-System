@@ -60,18 +60,18 @@ generate-data:
 # ---------------------------------------------------------------------------
 up:
 	@echo ">>> Starting cluster services..."
-	@docker-compose -f $(COMPOSE_FILE) up -d $(SERVICES)
+	@docker compose -f $(COMPOSE_FILE) up $(SERVICES) -d
 	@echo ""
 	@echo "Wait ~2 minutes then run: make ps"
 
 down:
-	@docker-compose -f $(COMPOSE_FILE) down
+	@docker compose -f $(COMPOSE_FILE) down
 
 ps:
-	@docker-compose -f $(COMPOSE_FILE) ps
+	@docker compose -f $(COMPOSE_FILE) ps
 
 logs:
-	@docker-compose -f $(COMPOSE_FILE) logs -f namenode
+	@docker compose -f $(COMPOSE_FILE) logs -f namenode
 
 # ---------------------------------------------------------------------------
 # Conda (staged install to avoid OOM kill / exit 137)
@@ -115,12 +115,26 @@ create-hive-tables:
 
 init-hive-schema:
 	@echo ">>> Initialising Hive metastore schema (run once on first boot)..."
-	@docker exec -it hive-metastore /opt/hive/bin/schematool -dbType postgres -initSchema
+	@docker exec -it hive-metastore /opt/hive/bin/schematool -dbType postgres -connUrl 'jdbc:postgresql://hive-metastore-postgresql:5432/metastore' -userName hive -passWord hive -initSchema
 	@echo "Restarting hive-metastore..."
 	@docker restart hive-metastore
-	@echo "Waiting 15s for metastore to come up..."
-	@sleep 15
-	@docker logs hive-metastore --tail 10
+	@echo "Waiting 20s for metastore to come up..."
+	@sleep 20
+	@docker logs hive-metastore --tail 15
+
+init-hive-schema-force:
+	@echo ">>> Force-init: spinning up temp container to run schematool..."
+	@docker stop hive-metastore 2>/dev/null || true
+	@docker rm hive-metastore-init 2>/dev/null || true
+	@NETWORK=$$(docker inspect hive-metastore-postgresql --format '{{range $$k,$$v := .NetworkSettings.Networks}}{{$$k}}{{end}}') && docker run -d --name hive-metastore-init --network $$NETWORK --env-file hadoop.env bde2020/hive:2.3.2-postgresql-metastore sleep 600
+
+	@sleep 5
+	@docker exec -it hive-metastore-init /opt/hive/bin/schematool -dbType postgres -connUrl 'jdbc:postgresql://hive-metastore-postgresql:5432/metastore' -userName hive -passWord hive -initSchema
+	@docker rm -f hive-metastore-init
+	@docker start hive-metastore
+	@echo "Waiting 20s..."
+	@sleep 20
+	@docker logs hive-metastore --tail 15
 
 # ---------------------------------------------------------------------------
 # Airflow trigger

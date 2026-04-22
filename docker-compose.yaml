@@ -152,14 +152,16 @@ services:
   # NOTE: On first boot run: make init-hive-schema
   # ---------------------------------------------------------------------------
   hive-metastore:
-    image: bde2020/hive:2.3.2-postgresql-metastore
+    image:  bde2020/hive:2.3.2-postgresql-metastore
     container_name: hive-metastore
     restart: always
     depends_on:
-      - hive-metastore-postgresql
+      hive-metastore-postgresql:
+        condition: service_healthy
     command: /opt/hive/bin/hive --service metastore
     environment:
       SERVICE_PRECONDITION: "namenode:9000 namenode:9870 datanode:9864 hive-metastore-postgresql:5432"
+      HIVE_OPTS: "--hiveconf hive.metastore.schema.verification=false"
     ports:
       - "9083:9083"
     env_file:
@@ -172,6 +174,11 @@ services:
     image: bde2020/hive-metastore-postgresql:2.3.0
     container_name: hive-metastore-postgresql
     restart: always
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U hive -d metastore"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
 
   # ---------------------------------------------------------------------------
   # External PostgreSQL — Airflow DB + MLflow backend + app
